@@ -1,0 +1,18 @@
+name = "stickerminiapp-worker"
+main = "src/index.js"
+compatibility_date = "2024-06-01"
+account_id = "9363690a0f16f29325f426d2bfd6a627"
+
+[[kv_namespaces]]
+binding = "KV"
+id = "dac3eb3452a64d1ab6d7d0eb7fc0cc2e"
+
+[[d1_databases]]
+binding = "DB"
+database_name = "stickerminiapp-db"
+database_id = "PASTE_YOUR_D1_DATABASE_ID_HERE"
+
+[vars]
+FRONTEND_URL = "https://HtunHlaAung.github.io/stickerminiapp"
+VPS_URL      = "http://139.180.208.16:3000"
+OWNER_ID     = "1849257766"
