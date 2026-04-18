@@ -10,7 +10,7 @@ id = "dac3eb3452a64d1ab6d7d0eb7fc0cc2e"
 [[d1_databases]]
 binding = "DB"
 database_name = "stickerminiapp-db"
-database_id = "PASTE_YOUR_D1_DATABASE_ID_HERE"
+database_id = "e0afd8ba-39ee-4271-8431-11e57a8d0851"
 
 [vars]
 FRONTEND_URL = "https://HtunHlaAung.github.io/stickerminiapp"
