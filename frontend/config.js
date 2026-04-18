@@ -1,7 +1,7 @@
 // frontend/config.js
 // ⚠️  Update WORKER_URL after deploying your Cloudflare Worker
 window.APP_CONFIG = {
-  WORKER_URL:   'https://stickerminiapp-worker.YOUR_CF_SUBDOMAIN.workers.dev',
+  WORKER_URL:   'https://stickerminiapp-worker.hlaaunghtun68.workers.dev',
   APP_NAME:     'Magic Sticker',
   OWNER_ID:     '1849257766',
   MAX_FILE_SIZE: 64 * 1024,  // 64 KB
