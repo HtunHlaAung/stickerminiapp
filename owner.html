@@ -522,18 +522,6 @@ select.form-inp option{background:#0d2137;color:#e8f4fd}
 const WORKER_URL = window.APP_CONFIG?.WORKER_URL || 'https://stickerminiapp-worker.YOUR_CF.workers.dev';
 const OWNER_ID   = '1849257766';
 
-// ── Auth: require owner TG ID ──────────────────────────────────────
-const savedId = localStorage.getItem('owner_auth_id');
-let ownerAuthId = savedId;
-if (!ownerAuthId) {
-  ownerAuthId = prompt('🔑 Enter your Telegram ID to access the owner panel:');
-  if (ownerAuthId !== OWNER_ID) {
-    document.body.innerHTML = '<div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:12px"><div style="font-size:48px">🚫</div><div style="font-size:18px;font-weight:800;color:#FF5252">Unauthorized</div><div style="font-size:13px;color:#7ba7c8">Only the owner can access this panel.</div></div>';
-    throw new Error('Unauthorized');
-  }
-  localStorage.setItem('owner_auth_id', ownerAuthId);
-}
-
 // ── State ──────────────────────────────────────────────────────────
 let currentAnimJson  = null;
 let selectedLayer    = null;
@@ -545,30 +533,92 @@ let allTopups        = [];
 let topupFilter      = 'all';
 let paymentMethods   = [];
 
+// ── OWNER_SECRET ────────────────────────────────────────────────────
+// This must match the OWNER_SECRET you set via: wrangler secret put OWNER_SECRET
+// Keep this value private — do NOT commit it to a public repo.
+// The worker checks this header server-side to authenticate owner panel requests.
+const OWNER_SECRET = localStorage.getItem('owner_secret') || (() => {
+  const s = prompt(
+    '🔑 Enter your Owner Secret to access the dashboard.\n\n' +
+    'This is the OWNER_SECRET you set when deploying the Cloudflare Worker.\n' +
+    '(wrangler secret put OWNER_SECRET)'
+  );
+  if (!s) { showUnauthorized(); return ''; }
+  localStorage.setItem('owner_secret', s);
+  return s;
+})();
+
 // ── Clock ──────────────────────────────────────────────────────────
 setInterval(() => {
   document.getElementById('topbar-time').textContent = new Date().toLocaleTimeString();
 }, 1000);
 
-// ── API ────────────────────────────────────────────────────────────
+// ── API ─────────────────────────────────────────────────────────────
+// All requests send X-Owner-Secret header.
+// The Worker validates it against env.OWNER_SECRET (Cloudflare secret).
 async function api(path, method = 'GET', body = null) {
   const opts = {
     method,
     headers: {
-      'Content-Type': 'application/json',
-      // Owner bypass: pass a synthetic initData
-      'X-Init-Data': `user=${encodeURIComponent(JSON.stringify({ id: parseInt(OWNER_ID), first_name: 'Owner' }))}`,
+      'Content-Type':   'application/json',
+      'X-Owner-Secret': OWNER_SECRET,
     },
   };
   if (body) opts.body = JSON.stringify(body);
+
   const res  = await fetch(WORKER_URL + path, opts);
   const data = await res.json().catch(() => ({}));
+
+  if (res.status === 401 || res.status === 403) {
+    localStorage.removeItem('owner_secret');
+    showUnauthorized();
+    throw new Error(data.error || 'Unauthorized');
+  }
+
   if (!res.ok) throw new Error(data.error || `HTTP ${res.status}`);
   return data;
 }
 
+// Helper for raw fetch calls (template JSON loading etc.)
+function ownerHeaders() {
+  return {
+    'Content-Type':   'application/json',
+    'X-Owner-Secret': OWNER_SECRET,
+  };
+}
+
+// Authenticate is now just a test call to /api/me
+async function authenticate() {
+  if (!OWNER_SECRET) return false;
+  try {
+    const res = await api('/api/me');
+    return res?.user?.role === 'owner';
+  } catch {
+    localStorage.removeItem('owner_secret');
+    showUnauthorized();
+    return false;
+  }
+}
+
+function showUnauthorized() {
+  document.body.innerHTML = `
+    <div style="display:flex;align-items:center;justify-content:center;height:100vh;flex-direction:column;gap:14px;text-align:center;padding:24px">
+      <div style="font-size:52px">🚫</div>
+      <div style="font-size:20px;font-weight:900;color:#FF5252">Unauthorized</div>
+      <div style="font-size:14px;color:#7ba7c8;max-width:300px;line-height:1.6">
+        Only the owner can access this panel.<br>
+        Open it from Telegram using the Mini App button.
+      </div>
+      <button onclick="location.reload()" style="padding:10px 20px;border-radius:10px;background:#2196F3;color:#fff;border:none;font-weight:700;cursor:pointer;margin-top:8px">
+        Try Again
+      </button>
+    </div>`;
+}
+
 // ── Init ───────────────────────────────────────────────────────────
 async function init() {
+  const ok = await authenticate();
+  if (!ok) return;
   await loadSettings();
   loadDashboard();
   loadCategoriesToDatalist();
@@ -657,7 +707,7 @@ async function loadMiniPreview(id) {
   try {
     const container = document.getElementById(`tprev-${id}`);
     if (!container) return;
-    const res = await fetch(`${WORKER_URL}/api/templates/${id}/json`, { headers: { 'X-Init-Data': `user=${encodeURIComponent(JSON.stringify({ id: parseInt(OWNER_ID) }))}` } });
+    const res = await fetch(`${WORKER_URL}/api/templates/${id}/json`, { headers: ownerHeaders() });
     if (!res.ok) return;
     const json = await res.json();
     lottie.loadAnimation({ container, animData: json, renderer: 'canvas', loop: true, autoplay: true });
@@ -696,7 +746,7 @@ async function editTpl(id) {
     const t = await api(`/api/templates/${id}`);
     openTplModal(t);
     // Load json
-    const res = await fetch(`${WORKER_URL}/api/templates/${id}/json`, { headers: { 'X-Init-Data': `user=${encodeURIComponent(JSON.stringify({ id: parseInt(OWNER_ID) }))}` } });
+    const res = await fetch(`${WORKER_URL}/api/templates/${id}/json`, { headers: ownerHeaders() });
     if (res.ok) {
       const json = await res.json();
       currentAnimJson = json;
@@ -733,7 +783,7 @@ async function handleAnimFile(input) {
       try {
         const res = await fetch(`${WORKER_URL}/api/templates/layers`, {
           method: 'POST',
-          headers: { 'Content-Type': 'application/json', 'X-Init-Data': `user=${encodeURIComponent(JSON.stringify({ id: parseInt(OWNER_ID) }))}` },
+          headers: ownerHeaders(),
           body: JSON.stringify({ tgs_base64: b64 }),
         });
         const data = await res.json();
