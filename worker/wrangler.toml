@@ -16,3 +16,16 @@ database_id = "e0afd8ba-39ee-4271-8431-11e57a8d0851"
 FRONTEND_URL = "https://HtunHlaAung.github.io/stickerminiapp"
 VPS_URL      = "http://139.180.208.16:3000"
 OWNER_ID     = "1849257766"
+
+# ── Set ALL of these as secrets (never put real values here) ──
+# wrangler secret put BOT_TOKEN
+#   → 8453580045:AAHrL62nIBfKHgW9xyxPL6nuiPDhxAfOCuE
+#
+# wrangler secret put VPS_SECRET
+#   → any random string (must match VPS .env VPS_SECRET)
+#     generate one: openssl rand -hex 32
+#
+# wrangler secret put OWNER_SECRET
+#   → any random string you choose (used by owner.html to authenticate)
+#     generate one: openssl rand -hex 32
+#     ALSO paste same value into frontend/owner.html OWNER_SECRET constant
